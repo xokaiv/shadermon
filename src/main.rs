@@ -34,6 +34,11 @@ fn main() {
     let steam_base = home.join(".local/share/Steam");
     let log_path = steam_base.join("logs/shader_log.txt");
     let steamapps_path = steam_base.join("steamapps");
+    let mut steamapps_dirs = vec![steamapps_path.clone()];
+
+    if let Ok(extra_dirs) = find_steam_libraries(&steamapps_path) {
+        steamapps_dirs.extend(extra_dirs);
+    }
 
     let current_progress = Arc::new(Mutex::new(ShaderProgress::default()));
     let mut app_cache: HashMap<String, String> = HashMap::new();
@@ -85,7 +90,7 @@ fn main() {
                                 let percent_str = format!("{}%", percent_raw);
 
                                 let app_name = app_cache.entry(app_id.clone()).or_insert_with(|| {
-                                    resolve_app_name(&steamapps_path, &app_id)
+                                    resolve_app_name(&steamapps_dirs, &app_id)
                                 }).clone();
 
                                 *lock = ShaderProgress {
@@ -99,7 +104,7 @@ fn main() {
                             } else if let Some(done_caps) = done_re.captures(&last_line) {
                                 let app_id = done_caps.get(1).unwrap().as_str().to_string();
                                 let app_name = app_cache.entry(app_id.clone()).or_insert_with(|| {
-                                    resolve_app_name(&steamapps_path, &app_id)
+                                    resolve_app_name(&steamapps_dirs, &app_id)
                                 }).clone();
                                 
                                 if lock.is_active && !lock.app_name.is_empty() {
@@ -110,12 +115,12 @@ fn main() {
                                         .icon("steam") //Should pull steam icon, i think?
                                         .timeout(Duration::from_secs(5))
                                         .show();
-                                }
 
-                                *lock = ShaderProgress {
-                                    is_active: false,
-                                    ..Default::default()
-                                };
+                                    *lock = ShaderProgress {
+                                        is_active: false,
+                                        ..Default::default()
+                                    };
+                                }
                             }
                         }
                     }
@@ -181,14 +186,30 @@ fn load_embedded_icon(bytes: &[u8]) -> Option<Icon> {
     }
 }
 
-fn resolve_app_name(steamapps: &PathBuf, app_id: &str) -> String {
-    let manifest_path = steamapps.join(format!("appmanifest_{}.acf", app_id));
-    if let Ok(file) = File::open(manifest_path) {
-        let reader = BufReader::new(file);
-        let name_re = Regex::new(r#""name"\s+"([^"]+)""#).unwrap();
-        for line in reader.lines().filter_map(Result::ok) {
-            if let Some(caps) = name_re.captures(&line) {
-                return caps.get(1).unwrap().as_str().to_string();
+fn find_steam_libraries(default_steamapps: &PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut dirs = Vec::new();
+    let libraryfolders = default_steamapps.join("libraryfolders.vdf");
+    let file = File::open(libraryfolders)?;
+    let reader = BufReader::new(file);
+    let path_re = Regex::new(r#""path"\s+"([^"]+)""#).unwrap();
+    for line in reader.lines().filter_map(Result::ok) {
+        if let Some(caps) = path_re.captures(&line) {
+            dirs.push(PathBuf::from(caps.get(1).unwrap().as_str()).join("steamapps"));
+        }
+    }
+    Ok(dirs)
+}
+
+fn resolve_app_name(steamapps_dirs: &[PathBuf], app_id: &str) -> String {
+    let name_re = Regex::new(r#""name"\s+"([^"]+)""#).unwrap();
+    for steamapps in steamapps_dirs {
+        let manifest_path = steamapps.join(format!("appmanifest_{}.acf", app_id));
+        if let Ok(file) = File::open(manifest_path) {
+            let reader = BufReader::new(file);
+            for line in reader.lines().filter_map(Result::ok) {
+                if let Some(caps) = name_re.captures(&line) {
+                    return caps.get(1).unwrap().as_str().to_string();
+                }
             }
         }
     }
