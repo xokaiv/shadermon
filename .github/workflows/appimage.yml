@@ -120,7 +120,8 @@ jobs:
             xdotool \
             gtk3 \
             glib2 \
-            fuse2
+            fuse2 \
+            fuse
 
       - name: Checkout
         uses: actions/checkout@v4
