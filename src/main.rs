@@ -4,7 +4,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tray_icon::{
@@ -69,60 +69,54 @@ fn main() {
         let mut last_checked_len = 0;
 
         loop {
-            if let Ok(file) = File::open(&log_path) {
-                if let Ok(metadata) = file.metadata() {
-                    let len = metadata.len();
+            if let Ok(file) = File::open(&log_path) && let Ok(metadata) = file.metadata() {
+                let len = metadata.len();
 
-                    if len != last_checked_len {
-                        last_checked_len = len;
-                        let reader = BufReader::new(file);
+                if len != last_checked_len {
+                    last_checked_len = len;
+                    let reader = BufReader::new(file);
 
-                        if let Some(last_line) = reader.lines().filter_map(Result::ok).last() {
-                            let mut lock = progress_clone.lock().unwrap();
+                    if let Some(last_line) = reader.lines().map_while(Result::ok).last() {
+                        let mut lock = progress_clone.lock().unwrap();
 
-                            if let Some(caps) = progress_re.captures(&last_line) {
-                                let app_id = caps.get(1).unwrap().as_str().to_string();
-                                let percent_raw = caps.get(2).unwrap().as_str();
-                                let compiled = caps.get(3).unwrap().as_str().to_string();
-                                let total = caps.get(4).unwrap().as_str().to_string();
+                        if let Some(caps) = progress_re.captures(&last_line) {
+                            let app_id = caps.get(1).unwrap().as_str().to_string();
+                            let percent_raw = caps.get(2).unwrap().as_str();
+                            let compiled = caps.get(3).unwrap().as_str().to_string();
+                            let total = caps.get(4).unwrap().as_str().to_string();
 
-                                let percent_num = percent_raw.parse::<u32>().unwrap_or(0);
-                                let percent_str = format!("{}%", percent_raw);
+                            let percent_num = percent_raw.parse::<u32>().unwrap_or(0);
+                            let percent_str = format!("{}%", percent_raw);
 
-                                let app_name = app_cache
-                                    .entry(app_id.clone())
-                                    .or_insert_with(|| resolve_app_name(&steamapps_dirs, &app_id))
-                                    .clone();
+                            let app_name = app_cache
+                                .entry(app_id.clone())
+                                .or_insert_with(|| resolve_app_name(&steamapps_dirs, &app_id))
+                                .clone();
 
-                                *lock = ShaderProgress {
-                                    app_name,
-                                    percent_num,
-                                    percent_str,
-                                    compiled,
-                                    total,
-                                    is_active: true,
-                                };
-                            } else if let Some(done_caps) = done_re.captures(&last_line) {
-                                let app_id = done_caps.get(1).unwrap().as_str().to_string();
+                            *lock = ShaderProgress {
+                                app_name,
+                                percent_num,
+                                percent_str,
+                                compiled,
+                                total,
+                                is_active: true,
+                            };
+                        } else if done_re.captures(&last_line).is_some() && lock.is_active && !lock.app_name.is_empty() {
+                            let _ = Notification::new()
+                                .summary("Steam Shader Monitor")
+                                .body(&format!(
+                                    "Finished compiling shaders for:\n{}",
+                                    lock.app_name
+                                ))
+                                .appname("shadermon")
+                                .icon("steam") //Should pull steam icon, i think?
+                                .timeout(Duration::from_secs(5))
+                                .show();
 
-                                if lock.is_active && !lock.app_name.is_empty() {
-                                    let _ = Notification::new()
-                                        .summary("Steam Shader Monitor")
-                                        .body(&format!(
-                                            "Finished compiling shaders for:\n{}",
-                                            lock.app_name
-                                        ))
-                                        .appname("shadermon")
-                                        .icon("steam") //Should pull steam icon, i think?
-                                        .timeout(Duration::from_secs(5))
-                                        .show();
-
-                                    *lock = ShaderProgress {
-                                        is_active: false,
-                                        ..Default::default()
-                                    };
-                                }
-                            }
+                            *lock = ShaderProgress {
+                                is_active: false,
+                                ..Default::default()
+                            };
                         }
                     }
                 }
@@ -153,11 +147,10 @@ fn main() {
 
     let main_loop_clone = main_loop.clone();
     glib::timeout_add_local(Duration::from_millis(100), move || {
-        if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
-            if event.id == quit_item.id() {
-                let _ = tray_icon.take();
-                main_loop_clone.quit();
-            }
+        if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv()
+            && event.id == quit_item.id() {
+            let _ = tray_icon.take();
+            main_loop_clone.quit();
         }
         glib::ControlFlow::Continue
     });
@@ -187,13 +180,13 @@ fn load_embedded_icon(bytes: &[u8]) -> Option<Icon> {
     }
 }
 
-fn find_steam_libraries(default_steamapps: &PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
+fn find_steam_libraries(default_steamapps: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut dirs = Vec::new();
     let libraryfolders = default_steamapps.join("libraryfolders.vdf");
     let file = File::open(libraryfolders)?;
     let reader = BufReader::new(file);
     let path_re = Regex::new(r#""path"\s+"([^"]+)""#).unwrap();
-    for line in reader.lines().filter_map(Result::ok) {
+    for line in reader.lines().map_while(Result::ok) {
         if let Some(caps) = path_re.captures(&line) {
             dirs.push(PathBuf::from(caps.get(1).unwrap().as_str()).join("steamapps"));
         }
@@ -207,7 +200,7 @@ fn resolve_app_name(steamapps_dirs: &[PathBuf], app_id: &str) -> String {
         let manifest_path = steamapps.join(format!("appmanifest_{}.acf", app_id));
         if let Ok(file) = File::open(manifest_path) {
             let reader = BufReader::new(file);
-            for line in reader.lines().filter_map(Result::ok) {
+            for line in reader.lines().map_while(Result::ok) {
                 if let Some(caps) = name_re.captures(&line) {
                     return caps.get(1).unwrap().as_str().to_string();
                 }
