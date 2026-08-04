@@ -59,7 +59,7 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
+          
       - name: Install cargo-appimage
         run: cargo install cargo-appimage
 
