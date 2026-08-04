@@ -4,7 +4,7 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
-tray-icon = "0.19"
+tray-icon = { version = "0.19", default-features = false }
 glib = "0.18"
 gtk = "0.18"
 regex = "1.10"
