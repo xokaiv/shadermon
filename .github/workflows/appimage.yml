@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build-and-release:
@@ -28,6 +28,7 @@ jobs:
             libglib2.0-dev
             libgirepository1.0-dev
             libxdo-dev
+            libfuse2
             pkg-config
             build-essential
             wget
@@ -41,18 +42,11 @@ jobs:
             libglib2.0-dev \
             libgirepository1.0-dev \
             libxdo-dev \
+            libfuse2 \
             pkg-config \
             build-essential \
             wget \
             file
-      - name: Install FUSE 2
-        run: |
-          sudo apt-get update
-          if grep -q "24.04" /etc/os-release; then
-            sudo apt-get install -y libfuse2t64
-          else
-            sudo apt-get install -y libfuse2
-          fi
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
