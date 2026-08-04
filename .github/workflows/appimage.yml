@@ -133,7 +133,6 @@ jobs:
             xdotool \
             gtk3 \
             glib2 \
-            fuse
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -156,7 +155,9 @@ jobs:
         run: ln -sf assets/icon.png icon.png
 
       - name: Build AppImage
-        run: cargo appimage
+        run: |
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          cargo appimage
 
       - name: Find AppImage
         id: find_appimage_arch
