@@ -109,8 +109,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-    env:
-      PATH: /root/.cargo/bin:/root/.local/bin:${{ env.PATH }}
 
     steps:
       - name: Checkout
@@ -140,7 +138,10 @@ jobs:
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          
+
+      - name: Add Cargo to PATH
+        run: echo "/root/.cargo/bin" >> $GITHUB_PATH
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
@@ -148,9 +149,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install cargo-appimage
-        run: |
-          source "$HOME/.cargo/env"
-          cargo install cargo-appimage
+        run: cargo install cargo-appimage
 
       - name: Download appimagetool
         run: |
@@ -164,9 +163,7 @@ jobs:
         run: ln -sf assets/icon.png icon.png
 
       - name: Build AppImage
-        run: |
-          source "$HOME/.cargo/env"
-          cargo appimage
+        run: cargo appimage
 
       - name: Find AppImage
         id: find_appimage_arch
