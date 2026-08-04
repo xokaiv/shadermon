@@ -69,7 +69,9 @@ fn main() {
         let mut last_checked_len = 0;
 
         loop {
-            if let Ok(file) = File::open(&log_path) && let Ok(metadata) = file.metadata() {
+            if let Ok(file) = File::open(&log_path)
+                && let Ok(metadata) = file.metadata()
+            {
                 let len = metadata.len();
 
                 if len != last_checked_len {
@@ -101,7 +103,10 @@ fn main() {
                                 total,
                                 is_active: true,
                             };
-                        } else if done_re.captures(&last_line).is_some() && lock.is_active && !lock.app_name.is_empty() {
+                        } else if done_re.captures(&last_line).is_some()
+                            && lock.is_active
+                            && !lock.app_name.is_empty()
+                        {
                             let _ = Notification::new()
                                 .summary("Steam Shader Monitor")
                                 .body(&format!(
@@ -148,7 +153,8 @@ fn main() {
     let main_loop_clone = main_loop.clone();
     glib::timeout_add_local(Duration::from_millis(100), move || {
         if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv()
-            && event.id == quit_item.id() {
+            && event.id == quit_item.id()
+        {
             let _ = tray_icon.take();
             main_loop_clone.quit();
         }
