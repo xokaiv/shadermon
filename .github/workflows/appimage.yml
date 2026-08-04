@@ -109,6 +109,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    env:
+      HOME: /root
+      CARGO_HOME: /root/.cargo
+      RUSTUP_HOME: /root/.rustup
 
     steps:
       - name: Checkout
@@ -137,8 +141,11 @@ jobs:
 
       - name: Install Rust
         run: |
+          export HOME=/root
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
+          echo "/root/.cargo/bin" >> $GITHUB_PATH
+          echo "/root/.cargo/bin" >> $GITHUB_ENV
+          
       - name: Add Cargo to PATH
         run: echo "/root/.cargo/bin" >> $GITHUB_PATH
 
