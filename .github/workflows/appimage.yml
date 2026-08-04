@@ -77,7 +77,12 @@ jobs:
       - name: Find AppImage
         id: find_appimage
         run: |
-          APPIMAGE=$(find . -maxdepth 2 -name '*.AppImage' -type f | head -n 1)
+          APPIMAGE=$(find target/appimage -name '*.AppImage' -type f | head -n 1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "No AppImage found in target/appimage"
+            find target -maxdepth 3 -type f | sort
+            exit 1
+          fi
           echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Upload AppImage
@@ -85,3 +90,8 @@ jobs:
         with:
           name: shadermon-appimage
           path: ${{ steps.find_appimage.outputs.appimage }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.find_appimage.outputs.appimage }}
