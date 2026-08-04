@@ -4,10 +4,10 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
-tray-icon = { version = "0.19", default-features = false }
-glib = "0.18"
+tray-icon = "0.24"
+glib = "0.22"
 gtk = "0.18"
 regex = "1.10"
-dirs = "5.0"
-image = "0.24"
+dirs = "6.0"
+image = "0.25"
 notify-rust = "4.0"
