@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional release tag, like v1.2.3"
+        required: false
+        type: string
 
 jobs:
   build-and-release:
@@ -23,7 +28,7 @@ jobs:
       - name: Cache apt packages
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: >
+          packages: >-
             libgtk-3-dev
             libglib2.0-dev
             libgirepository1.0-dev
@@ -86,6 +91,8 @@ jobs:
           path: ${{ steps.find_appimage.outputs.appimage }}
 
       - name: Create GitHub Release
+        if: startsWith(github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name, 'v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           files: ${{ steps.find_appimage.outputs.appimage }}
