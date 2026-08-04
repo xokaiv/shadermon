@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  ubuntu-build-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -56,10 +56,6 @@ jobs:
             wget \
             file
 
-      - name: Check libxdo version
-        run: |
-          ldconfig -p | grep libxdo || true
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -81,7 +77,7 @@ jobs:
         run: cargo appimage
 
       - name: Find AppImage
-        id: find_appimage
+        id: find_appimage_ubuntu
         run: |
           APPIMAGE=$(find target/appimage -name '*.AppImage' -type f | head -n 1)
           if [ -z "$APPIMAGE" ]; then
@@ -90,19 +86,119 @@ jobs:
             exit 1
           fi
           echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
-          
-      - name: Make AppImage executable
-        run: chmod +x "${{ steps.find_appimage.outputs.appimage }}"
 
-      - name: Upload AppImage
+      - name: Rename AppImage for Ubuntu
+        id: rename_ubuntu
+        run: |
+          ARCH=x86_64
+          NEW_NAME="Steam_Shader_Monitor-${ARCH}-Ubuntu.AppImage"
+          mv "${{ steps.find_appimage_ubuntu.outputs.appimage }}" "target/appimage/${NEW_NAME}"
+          echo "renamed_appimage=target/appimage/${NEW_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Make AppImage executable
+        run: chmod +x "${{ steps.rename_ubuntu.outputs.renamed_appimage }}"
+
+      - name: Upload Ubuntu AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: shadermon-appimage
-          path: ${{ steps.find_appimage.outputs.appimage }}
+          name: Steam_Shader_Monitor-x86_64-Ubuntu
+          path: ${{ steps.rename_ubuntu.outputs.renamed_appimage }}
+
+  arch-build-and-release:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install system dependencies (Arch)
+        run: |
+          pacman -Sy --noconfirm \
+            base-devel \
+            git \
+            wget \
+            pkgconf \
+            xdotool \
+            gtk3 \
+            glib2 \
+            fuse2
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (Arch)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+
+      - name: Install cargo-appimage
+        run: |
+          source "$HOME/.cargo/env"
+          cargo install cargo-appimage
+
+      - name: Download appimagetool
+        run: |
+          ARCH=x86_64
+          wget -O appimagetool \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage"
+          chmod +x appimagetool
+          mv appimagetool /usr/local/bin/appimagetool
+
+      - name: Link icon into crate root
+        run: ln -sf assets/icon.png icon.png
+
+      - name: Build AppImage
+        run: |
+          source "$HOME/.cargo/env"
+          cargo appimage
+
+      - name: Find AppImage
+        id: find_appimage_arch
+        run: |
+          APPIMAGE=$(find target/appimage -name '*.AppImage' -type f | head -n 1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "No AppImage found in target/appimage"
+            find target -maxdepth 3 -type f | sort
+            exit 1
+          fi
+          echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Rename AppImage for Arch
+        id: rename_arch
+        run: |
+          ARCH=x86_64
+          NEW_NAME="Steam_Shader_Monitor-${ARCH}-Arch.AppImage"
+          mv "${{ steps.find_appimage_arch.outputs.appimage }}" "target/appimage/${NEW_NAME}"
+          echo "renamed_appimage=target/appimage/${NEW_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Make AppImage executable
+        run: chmod +x "${{ steps.rename_arch.outputs.renamed_appimage }}"
+
+      - name: Upload Arch AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Steam_Shader_Monitor-x86_64-Arch
+          path: ${{ steps.rename_arch.outputs.renamed_appimage }}
+
+  create-release:
+    needs:
+      - ubuntu-build-and-release
+      - arch-build-and-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
       - name: Create GitHub Release
         if: startsWith(github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name, 'v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
-          files: ${{ steps.find_appimage.outputs.appimage }}
+          files: |
+            dist/Steam_Shader_Monitor-x86_64-Ubuntu/Steam_Shader_Monitor-x86_64-Ubuntu.AppImage
+            dist/Steam_Shader_Monitor-x86_64-Arch/Steam_Shader_Monitor-x86_64-Arch.AppImage
