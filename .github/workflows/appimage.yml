@@ -42,6 +42,14 @@ jobs:
             build-essential \
             wget \
             file
+      - name: Install FUSE 2
+        run: |
+          sudo apt-get update
+          if grep -q "24.04" /etc/os-release; then
+            sudo apt-get install -y libfuse2t64
+          else
+            sudo apt-get install -y libfuse2
+          fi
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -66,13 +74,7 @@ jobs:
       - name: Find AppImage
         id: find_appimage
         run: |
-          APPIMAGE=$(find . -name '*.AppImage' -type f | head -n 1)
-          if [ -z "$APPIMAGE" ]; then
-            echo "No AppImage found after cargo appimage"
-            ls -R .
-            exit 1
-          fi
-          echo "Found AppImage: $APPIMAGE"
+          APPIMAGE=$(find . -maxdepth 2 -name '*.AppImage' -type f | head -n 1)
           echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Upload AppImage
