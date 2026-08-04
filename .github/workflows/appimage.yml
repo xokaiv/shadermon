@@ -109,6 +109,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    env:
+      PATH: /root/.cargo/bin:/root/.local/bin:${{ env.PATH }}
 
     steps:
       - name: Checkout
@@ -138,9 +140,6 @@ jobs:
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      
-      - name: Add Cargo to PATH
-        run: . "$HOME/.cargo/env"
           
       - name: Rust cache
         uses: swatinem/rust-cache@v2
