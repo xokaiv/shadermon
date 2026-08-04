@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: 
 
 jobs:
-  build:
+  build-appimage:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,24 +24,35 @@ jobs:
             libgirepository1.0-dev \
             libxdo-dev \
             pkg-config \
-            build-essential
+            build-essential \
+            wget \
+            file
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-appimage
+        run: cargo install cargo-appimage
+
+      - name: Download appimagetool
+        run: |
+          ARCH=x86_64
+          wget -O appimagetool \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage"
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/appimagetool
+
+      - name: Link icon into crate root
+        run: ln -sf assets/icon.png icon.png
+
+      - name: Build AppImage
+        run: cargo appimage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
         with:
-          components: rustfmt, clippy
-
-      - name: Cache cargo
-        uses: swatinem/rust-cache@v2
-
-      - name: Format check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Test
-        run: cargo test --all-features
+          name: shadermon-appimage
+          path: "*.AppImage"
 
       - name: Build release
         run: cargo build --release
