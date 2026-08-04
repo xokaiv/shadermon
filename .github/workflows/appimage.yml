@@ -57,8 +57,10 @@ jobs:
             file
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          . "$HOME/.cargo/env"
+          
       - name: Install cargo-appimage
         run: cargo install cargo-appimage
 
