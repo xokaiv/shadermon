@@ -90,6 +90,9 @@ jobs:
             exit 1
           fi
           echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
+          
+      - name: Make AppImage executable
+        run: chmod +x "${{ steps.find_appimage.outputs.appimage }}"
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
