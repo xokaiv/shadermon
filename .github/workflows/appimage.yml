@@ -56,6 +56,10 @@ jobs:
             wget \
             file
 
+      - name: Check libxdo version
+        run: |
+          ldconfig -p | grep libxdo || true
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
