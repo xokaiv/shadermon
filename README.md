@@ -31,3 +31,10 @@ chmod +x Steam_Shader_Monitor-x86_64-Arch.AppImage
 ```
 
 If you are on a different Linux distribution, try the release built for the closest family—Ubuntu/Debian or Arch—or build from source.
+
+## Dependencies
+
+# Arch
+The following packages are required in order to run the AppImage:
+* libayatana-appindicator
+* xdotool
